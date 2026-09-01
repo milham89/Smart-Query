@@ -29,6 +29,11 @@ class MasterArsip extends Model
         'tgl_pinjam_terakhir' => 'datetime',
     ];
 
+    protected function serializeDate(\DateTimeInterface $date)
+    {
+        return $date->format('Y-m-d H:i:s');
+    }
+
     public function registerPeminjaman()
     {
         return $this->hasMany(RegisterPeminjaman::class, 'kode_pelaksana', 'kode_pelaksana');

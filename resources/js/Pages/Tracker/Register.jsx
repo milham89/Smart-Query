@@ -9,7 +9,17 @@ const tabs = [
 
 function formatDate(d) {
     if (!d) return '-';
-    return new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    // Support 'YYYY-MM-DD HH:mm:ss' or ISO string
+    const s = String(d).replace(' ', 'T');
+    const date = new Date(s);
+    if (isNaN(date.getTime())) return d;
+    return date.toLocaleDateString('id-ID', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
 }
 
 export default function Register({ records, filter, search: initialSearch }) {

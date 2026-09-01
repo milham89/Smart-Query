@@ -26,6 +26,11 @@ class RegisterPeminjaman extends Model
         'tgl_pengembalian' => 'datetime',
     ];
 
+    protected function serializeDate(\DateTimeInterface $date)
+    {
+        return $date->format('Y-m-d H:i:s');
+    }
+
     public function masterArsip()
     {
         return $this->belongsTo(MasterArsip::class, 'kode_pelaksana', 'kode_pelaksana');

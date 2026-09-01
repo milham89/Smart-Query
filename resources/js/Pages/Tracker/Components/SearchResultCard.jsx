@@ -1,6 +1,20 @@
 import React from 'react';
 import { MapPin, Box, Layers, FileText, User, Calendar } from 'lucide-react';
 
+function formatDateTime(d) {
+    if (!d) return '';
+    const s = String(d).replace(' ', 'T');
+    const date = new Date(s);
+    if (isNaN(date.getTime())) return d;
+    return date.toLocaleDateString('id-ID', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
+}
+
 export default function SearchResultCard({ arsip }) {
     const isReady = arsip.status === 'READY';
 
@@ -22,7 +36,7 @@ export default function SearchResultCard({ arsip }) {
                         <>
                             DIPINJAM — {arsip.peminjam_terakhir}
                             {arsip.tgl_pinjam_terakhir && (
-                                <span className="ml-1 font-normal">({new Date(arsip.tgl_pinjam_terakhir).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })})</span>
+                                <span className="ml-1 font-normal">({formatDateTime(arsip.tgl_pinjam_terakhir)})</span>
                             )}
                         </>
                     )}
