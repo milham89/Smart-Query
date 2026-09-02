@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, Box, Layers, FileText, User, Calendar } from 'lucide-react';
+import { MapPin, Box, Layers, FileText, User, Calendar, Building, Copy } from 'lucide-react';
 
 function formatDateTime(d) {
     if (!d) return '';
@@ -15,19 +15,30 @@ function formatDateTime(d) {
     });
 }
 
-export default function SearchResultCard({ arsip }) {
+export default function SearchResultCard({ arsip, isDuplicate = false }) {
     const isReady = arsip.status === 'READY';
 
     return (
-        <div className={`bg-white rounded-xl shadow-sm border-l-4 ${isReady ? 'border-emerald-500' : 'border-red-500'} border border-slate-200 p-4`}>
-            {/* Status Badge */}
+        <div className={`bg-white rounded-xl shadow-sm border-l-4 ${isReady ? 'border-emerald-500' : 'border-red-500'} border border-slate-200 p-4 relative`}>
+            {/* Status & Duplicate Badge */}
             <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-slate-800 text-sm">{arsip.kode_pelaksana}</span>
-                    <span className="text-slate-300">|</span>
-                    <span className="text-xs text-slate-500">{arsip.unit_kerja}</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                    {/* 1. Unit Kerja */}
+                    <span className="inline-flex items-center gap-1 font-semibold text-slate-800 text-xs bg-slate-100 px-2.5 py-1 rounded-md">
+                        <Building size={12} className="text-slate-500" />
+                        {arsip.unit_kerja || '-'}
+                    </span>
+                    {/* 2. Kode Pelaksana */}
+                    <span className="font-mono font-bold text-blue-700 text-sm bg-blue-50 px-2.5 py-0.5 rounded border border-blue-100">
+                        {arsip.kode_pelaksana}
+                    </span>
+                    {isDuplicate && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-amber-100 text-amber-800 px-2 py-0.5 rounded border border-amber-200">
+                            <Copy size={11} /> DUPLICATE
+                        </span>
+                    )}
                 </div>
-                <div className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-wide ${
+                <div className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide ${
                     isReady
                         ? 'bg-emerald-100 text-emerald-800'
                         : 'bg-red-100 text-red-800'
@@ -43,50 +54,49 @@ export default function SearchResultCard({ arsip }) {
                 </div>
             </div>
 
-            {/* Detail Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-                <div className="flex items-start gap-1.5">
-                    <Box size={13} className="text-slate-400 mt-0.5 flex-shrink-0" />
+            {/* Detail Fields in Required Order */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs mb-3">
+                {/* 3. No. Boks */}
+                <div className="flex items-start gap-1.5 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                    <Box size={14} className="text-slate-500 mt-0.5 flex-shrink-0" />
                     <div>
-                        <span className="text-slate-400 block">No. Boks</span>
-                        <span className="text-slate-700 font-medium">{arsip.no_boks}</span>
+                        <span className="text-slate-400 block text-[11px]">No. Boks</span>
+                        <span className="text-slate-700 font-semibold">{arsip.no_boks || '-'}</span>
                     </div>
                 </div>
-                <div className="flex items-start gap-1.5">
-                    <MapPin size={13} className="text-slate-400 mt-0.5 flex-shrink-0" />
+
+                {/* 5. Kurun Waktu */}
+                <div className="flex items-start gap-1.5 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                    <Calendar size={14} className="text-slate-500 mt-0.5 flex-shrink-0" />
                     <div>
-                        <span className="text-slate-400 block">Nama Lokasi</span>
-                        <span className="text-slate-700 font-medium">{arsip.ruang_simpan}</span>
+                        <span className="text-slate-400 block text-[11px]">Kurun Waktu</span>
+                        <span className="text-slate-700 font-semibold">{arsip.kurun_waktu_awal || '-'} — {arsip.kurun_waktu_akhir || '-'}</span>
                     </div>
                 </div>
-                <div className="flex items-start gap-1.5">
-                    <Layers size={13} className="text-slate-400 mt-0.5 flex-shrink-0" />
+
+                {/* 6. Lokasi Update */}
+                <div className="flex items-start gap-1.5 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                    <MapPin size={14} className="text-slate-500 mt-0.5 flex-shrink-0" />
                     <div>
-                        <span className="text-slate-400 block">Lokasi Simpan</span>
-                        <span className="text-slate-700 font-medium">{arsip.lokasi_simpan}</span>
-                    </div>
-                </div>
-                <div className="flex items-start gap-1.5">
-                    <Calendar size={13} className="text-slate-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                        <span className="text-slate-400 block">Kurun Waktu</span>
-                        <span className="text-slate-700 font-medium">{arsip.kurun_waktu_awal} — {arsip.kurun_waktu_akhir}</span>
+                        <span className="text-slate-400 block text-[11px]">Lokasi Update</span>
+                        <span className="text-slate-700 font-semibold">
+                            {[arsip.ruang_simpan, arsip.lokasi_simpan, arsip.rak ? `Rak ${arsip.rak}` : null].filter(Boolean).join(' • ') || '-'}
+                        </span>
                     </div>
                 </div>
             </div>
 
-            {/* Uraian */}
-            <div className="mt-3 flex items-start gap-1.5 text-xs">
-                <FileText size={13} className="text-slate-400 mt-0.5 flex-shrink-0" />
-                <div>
-                    <span className="text-slate-400">Uraian: </span>
-                    <span className="text-slate-600">{arsip.uraian_identitas}</span>
-                    {arsip.uraian2 && (
-                        <>
-                            <span className="text-slate-300 mx-1">|</span>
-                            <span className="text-slate-500">{arsip.uraian2}</span>
-                        </>
-                    )}
+            {/* 4. Uraian */}
+            <div className="bg-slate-50/70 p-2.5 rounded-lg border border-slate-100 text-xs">
+                <div className="flex items-start gap-1.5">
+                    <FileText size={14} className="text-slate-500 mt-0.5 flex-shrink-0" />
+                    <div className="space-y-1">
+                        <span className="text-slate-400 block text-[11px] font-medium">Uraian</span>
+                        <p className="text-slate-700 leading-relaxed">{arsip.uraian_identitas || '-'}</p>
+                        {arsip.uraian2 && (
+                            <p className="text-slate-500 border-t border-slate-200/60 pt-1 mt-1">{arsip.uraian2}</p>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

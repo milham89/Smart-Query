@@ -266,9 +266,21 @@ export default function Index() {
                             <p className="text-slate-300 text-xs mt-1">Scan barcode atau masukkan kode pelaksana untuk memulai.</p>
                         </div>
                     ) : (
-                        results.map(arsip => (
-                            <SearchResultCard key={arsip.id} arsip={arsip} />
-                        ))
+                        (() => {
+                            // Hitung frekuensi kemunculan kode_pelaksana untuk deteksi duplikasi
+                            const counts = results.reduce((acc, r) => {
+                                acc[r.kode_pelaksana] = (acc[r.kode_pelaksana] || 0) + 1;
+                                return acc;
+                            }, {});
+
+                            return results.map(arsip => (
+                                <SearchResultCard
+                                    key={arsip.id}
+                                    arsip={arsip}
+                                    isDuplicate={counts[arsip.kode_pelaksana] > 1}
+                                />
+                            ));
+                        })()
                     )}
                 </div>
             </main>
