@@ -48,9 +48,9 @@ function findCol(keywords, defaultIdx) {
 const idxKodePelaksana = findCol(['kode pelaksana', 'kode_pelaksana', 'no pelaksana', 'kode berkas'], 1);
 const idxNoBoks = findCol(['no. boks', 'no boks', 'nomor boks', 'no_boks', 'boks'], 24);
 
-// Kantor Pusat / Cabang / Divisi vs Unit Kerja
-const idxKantorPusat = findCol(['kantor pusat', 'kantor pusat / cabang', 'divisi', 'kantor cabang', 'cabang'], 4);
-const idxUnitKerja = findCol(['unit kerja', 'unit_kerja', 'grup', 'sub divisi', 'nama unit kerja'], 5);
+// Scan for columns by keywords or specific header titles
+const idxDivisi = findCol(['divisi', 'kantor pusat / cabang', 'kantor pusat', 'nama divisi'], 4);
+const idxGrup = findCol(['unit kerja', 'grup', 'sub divisi', 'nama grup', 'nama unit kerja'], 5);
 
 const idxUraian = findCol(['uraian identitas', 'uraian informasi berkas', 'uraian informasi', 'uraian 1', 'uraian'], 16);
 const idxUraian2 = findCol(['uraian 2', 'uraian2', 'keterangan'], 17);
@@ -154,15 +154,33 @@ var records = dataRows.map(function(r) {
         peminjamTerakhir = null;
     }
 
-    // Gabungkan Divisi / Kantor Pusat + Unit Kerja jika keduanya ada
-    var kantorPusatStr = idxKantorPusat !== -1 ? String(r[idxKantorPusat] || '').trim() : '';
-    var unitKerjaStr = idxUnitKerja !== -1 ? String(r[idxUnitKerja] || '').trim() : '';
+    // Ambil Divisi dan Unit Kerja / Grup
+    var divisiStr = idxDivisi !== -1 ? String(r[idxDivisi] || '').trim() : '';
+    var grupStr = idxGrup !== -1 ? String(r[idxGrup] || '').trim() : '';
     
+    // Jangan gunakan jika nilai hanya kode angka "0000" atau angka numerik murni
+    if (/^\d+$/.test(divisiStr)) divisiStr = '';
+    if (/^\d+$/.test(grupStr)) grupStr = '';
+
+    // Cari dari kolom sekitar jika belum ketemu teks nama divisi/grup
+    if (!divisiStr || !grupStr) {
+        for (let col = 3; col <= 8; col++) {
+            const val = String(r[col] || '').trim();
+            if (val && !/^\d+$/.test(val) && val.length > 3) {
+                if (!divisiStr && (val.toUpperCase().includes('DIVISI') || val.toUpperCase().includes('CABANG') || val.toUpperCase().includes('PUSAT'))) {
+                    divisiStr = val;
+                } else if (!grupStr && (val.toUpperCase().includes('GRUP') || val.toUpperCase().includes('BAGIAN') || val.toUpperCase().includes('SEKSI') || val.toUpperCase().includes('UNIT') || val.toUpperCase().includes('PENGADAAN') || val.toUpperCase().includes('MANAJEMEN'))) {
+                    grupStr = val;
+                }
+            }
+        }
+    }
+
     var finalUnitKerja = '';
-    if (kantorPusatStr && unitKerjaStr && kantorPusatStr !== unitKerjaStr) {
-        finalUnitKerja = kantorPusatStr + ' - ' + unitKerjaStr;
+    if (divisiStr && grupStr && divisiStr !== grupStr) {
+        finalUnitKerja = divisiStr + ' - ' + grupStr;
     } else {
-        finalUnitKerja = unitKerjaStr || kantorPusatStr || '-';
+        finalUnitKerja = grupStr || divisiStr || '-';
     }
 
     return {
