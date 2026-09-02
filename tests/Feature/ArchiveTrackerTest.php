@@ -117,4 +117,22 @@ class ArchiveTrackerTest extends TestCase
         $response->assertStatus(422);
         $response->assertJsonFragment(['message' => 'Berkas sudah berada di rak.']);
     }
+
+    public function test_can_delete_register_peminjaman()
+    {
+        $arsip = $this->createArsip();
+
+        $register = RegisterPeminjaman::create([
+            'no_register'     => now()->format('Ymd') . '0001',
+            'tanggal_request' => now()->toDateString(),
+            'nama_pemohon'    => 'Jane',
+            'kode_pelaksana'  => $arsip->kode_pelaksana,
+            'identitas_arsip' => $arsip->uraian_identitas,
+            'lokasi_simpan'   => $arsip->lokasi_simpan,
+        ]);
+
+        $response = $this->deleteJson('/register/' . $register->id);
+        $response->assertOk();
+        $this->assertDatabaseMissing('register_peminjamen', ['id' => $register->id]);
+    }
 }

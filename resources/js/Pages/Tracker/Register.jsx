@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Archive, Clock, BookOpen, CheckCircle, List, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Archive, Clock, BookOpen, CheckCircle, List, Search, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 
 const tabs = [
     { key: 'dipinjam', label: 'Sedang Dipinjam', icon: BookOpen, color: 'red' },
@@ -25,11 +25,44 @@ function formatDate(d) {
 export default function Register({ records, filter, search: initialSearch }) {
     const [searchVal, setSearchVal] = useState(initialSearch || '');
     const [clock, setClock] = useState(new Date());
+    const [deletingId, setDeletingId] = useState(null);
 
     React.useEffect(() => {
         const t = setInterval(() => setClock(new Date()), 1000);
         return () => clearInterval(t);
     }, []);
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    const handleDelete = async (id, noRegister) => {
+        if (!window.confirm(`Yakin ingin menghapus riwayat peminjaman dengan No. Register "${noRegister}"?`)) {
+            return;
+        }
+
+        setDeletingId(id);
+        try {
+            const res = await fetch(`/register/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                // Refresh page
+                navigate({ filter, search: searchVal });
+            } else {
+                alert(data.message || 'Gagal menghapus data register.');
+            }
+        } catch (err) {
+            alert('Terjadi kesalahan koneksi saat menghapus data.');
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
     const navigate = (params) => {
         const url = new URL(window.location.origin + '/register');
@@ -117,12 +150,13 @@ export default function Register({ records, filter, search: initialSearch }) {
                                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Tgl Pinjam</th>
                                 <th className="text-left px-4 py-3 font-semibold text-slate-600">Tgl Kembali</th>
                                 <th className="text-center px-4 py-3 font-semibold text-slate-600">Status</th>
+                                <th className="text-center px-4 py-3 font-semibold text-slate-600">Aksi</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {records.data.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
+                                    <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
                                         Tidak ada data.
                                     </td>
                                 </tr>
@@ -141,6 +175,16 @@ export default function Register({ records, filter, search: initialSearch }) {
                                             ) : (
                                                 <span className="inline-block px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800">DIPINJAM</span>
                                             )}
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <button
+                                                onClick={() => handleDelete(r.id, r.no_register)}
+                                                disabled={deletingId === r.id}
+                                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition disabled:opacity-50"
+                                                title="Hapus Register"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
                                         </td>
                                     </tr>
                                 ))

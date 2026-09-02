@@ -148,6 +148,20 @@ class ArchiveTrackerController extends Controller
         ]);
     }
 
+    public function destroyRegister($id)
+    {
+        $register = RegisterPeminjaman::find($id);
+        if (!$register) {
+            return response()->json(['message' => 'Data register tidak ditemukan.'], 404);
+        }
+
+        $register->delete();
+
+        return response()->json([
+            'message' => 'Data register peminjaman berhasil dihapus.'
+        ]);
+    }
+
     public function upload()
     {
         return Inertia::render('Tracker/Upload');

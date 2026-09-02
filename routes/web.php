@@ -8,5 +8,6 @@ Route::post('/tracker/search', [ArchiveTrackerController::class, 'search'])->nam
 Route::post('/tracker/borrow', [ArchiveTrackerController::class, 'borrow'])->name('tracker.borrow');
 Route::post('/tracker/return', [ArchiveTrackerController::class, 'return'])->name('tracker.return');
 Route::get('/register', [ArchiveTrackerController::class, 'register'])->name('tracker.register');
+Route::delete('/register/{id}', [ArchiveTrackerController::class, 'destroyRegister'])->name('tracker.register.destroy');
 Route::get('/upload', [ArchiveTrackerController::class, 'upload'])->name('tracker.upload');
 Route::post('/upload', [ArchiveTrackerController::class, 'uploadProcess'])->name('tracker.upload.process');
