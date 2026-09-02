@@ -10,8 +10,7 @@ const wb = XLSX.readFile(file, {
     cellFormula: false, 
     cellHTML: false, 
     cellText: false, 
-    cellDates: false,
-    dense: true 
+    cellDates: false
 });
 const ws = wb.Sheets[wb.SheetNames[0]];
 

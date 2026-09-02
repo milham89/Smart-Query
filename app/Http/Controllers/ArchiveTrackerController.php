@@ -186,25 +186,35 @@ class ArchiveTrackerController extends Controller
             $jsonPath = storage_path('app/uploads/import_' . time() . '_' . $index . '.json');
 
             $cmd = 'node --max-old-space-size=4096 ' . escapeshellarg($scriptPath) . ' ' . escapeshellarg($fullPath) . ' ' . escapeshellarg($jsonPath);
+            $output = [];
+            $exitCode = 0;
             exec($cmd . ' 2>&1', $output, $exitCode);
 
-            if ($exitCode === 0 && file_exists($jsonPath)) {
-                $data = json_decode(file_get_contents($jsonPath), true);
-                if (is_array($data)) {
-                    foreach ($data as $row) {
-                        if (!empty($row['kode_pelaksana'])) {
-                            $allValidRows[$row['kode_pelaksana']] = $row;
-                        }
-                    }
-                    $processedFilesCount++;
-                }
-                @unlink($jsonPath);
+            if ($exitCode !== 0 || !file_exists($jsonPath)) {
+                $errorMsg = !empty($output) ? implode("\n", $output) : 'Unknown error during Excel parsing.';
+                \Illuminate\Support\Facades\Log::error("Excel import failed: " . $errorMsg);
+                @unlink($fullPath);
+                if (file_exists($jsonPath)) @unlink($jsonPath);
+                return response()->json([
+                    'message' => 'Gagal membaca data arsip dari file yang diunggah: ' . ($output[0] ?? 'Node process error')
+                ], 422);
             }
+
+            $data = json_decode(file_get_contents($jsonPath), true);
+            if (is_array($data)) {
+                foreach ($data as $row) {
+                    if (!empty($row['kode_pelaksana'])) {
+                        $allValidRows[$row['kode_pelaksana']] = $row;
+                    }
+                }
+                $processedFilesCount++;
+            }
+            @unlink($jsonPath);
             @unlink($fullPath);
         }
 
         if (empty($allValidRows)) {
-            return response()->json(['message' => 'Gagal membaca data arsip dari file yang diunggah.'], 422);
+            return response()->json(['message' => 'Tidak ditemukan baris data arsip valid (kolom kode pelaksana kosong).'], 422);
         }
 
         $imported = 0;
