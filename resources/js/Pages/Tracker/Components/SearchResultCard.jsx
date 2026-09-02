@@ -79,8 +79,8 @@ export default function SearchResultCard({ arsip, isDuplicate = false }) {
                     <MapPin size={14} className="text-slate-500 mt-0.5 flex-shrink-0" />
                     <div>
                         <span className="text-slate-400 block text-[11px]">Lokasi Update</span>
-                        <span className="text-slate-700 font-semibold">
-                            {[arsip.ruang_simpan, arsip.lokasi_simpan, arsip.rak ? `Rak ${arsip.rak}` : null].filter(Boolean).join(' • ') || '-'}
+                        <span className="text-slate-700 font-semibold font-mono">
+                            {arsip.lokasi_simpan || '-'}
                         </span>
                     </div>
                 </div>
