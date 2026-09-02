@@ -155,23 +155,49 @@ var records = dataRows.map(function(r) {
     }
 
     // Ambil Divisi dan Unit Kerja / Grup
-    var divisiStr = idxDivisi !== -1 ? String(r[idxDivisi] || '').trim() : '';
-    var grupStr = idxGrup !== -1 ? String(r[idxGrup] || '').trim() : '';
-    
-    // Jangan gunakan jika nilai hanya kode angka "0000" atau angka numerik murni
-    if (/^\d+$/.test(divisiStr)) divisiStr = '';
-    if (/^\d+$/.test(grupStr)) grupStr = '';
+    var divisiStr = '';
+    var grupStr = '';
 
-    // Cari dari kolom sekitar jika belum ketemu teks nama divisi/grup
-    if (!divisiStr || !grupStr) {
-        for (let col = 3; col <= 8; col++) {
+    // Cari di seluruh baris kolom 0 - 12 untuk teks spesifik DIVISI dan GRUP
+    for (let col = 0; col <= Math.min(12, r.length - 1); col++) {
+        const val = String(r[col] || '').trim();
+        if (!val || /^\d+$/.test(val)) continue;
+
+        const valUpper = val.toUpperCase();
+
+        // Cari Divisi (misal: "DIVISI UMUM", "DIVISI HC", dll.)
+        if (!divisiStr && valUpper.startsWith('DIVISI')) {
+            divisiStr = val;
+        } else if (!divisiStr && (valUpper.includes('DIVISI') || valUpper.includes('CABANG') || valUpper.includes('PUSAT'))) {
+            // Hindari tulisan generic "KANTOR PUSAT" jika ada nama divisi sebenarnya
+            if (valUpper !== 'KANTOR PUSAT' && valUpper !== 'KANTOR CABANG') {
+                divisiStr = val;
+            }
+        }
+
+        // Cari Grup / Unit Kerja (misal: "Grup Manajemen Vendor & HPS", "Grup Pengadaan Gedung dan Properti")
+        if (!grupStr && (valUpper.startsWith('GRUP') || valUpper.startsWith('GROUP') || valUpper.startsWith('BAGIAN') || valUpper.startsWith('SEKSI') || valUpper.startsWith('UNIT') || valUpper.includes('PENGADAAN') || valUpper.includes('MANAJEMEN'))) {
+            grupStr = val;
+        }
+    }
+
+    // Fallback jika belum ketemu
+    if (!divisiStr && idxDivisi !== -1) {
+        const val = String(r[idxDivisi] || '').trim();
+        if (val && !/^\d+$/.test(val)) divisiStr = val;
+    }
+    if (!grupStr && idxGrup !== -1) {
+        const val = String(r[idxGrup] || '').trim();
+        if (val && !/^\d+$/.test(val)) grupStr = val;
+    }
+
+    // Jika divisi masih berupa label umum 'KANTOR PUSAT', cari kolom yang mengandung kata 'DIVISI'
+    if (divisiStr.toUpperCase() === 'KANTOR PUSAT' || divisiStr.toUpperCase() === 'KANTOR CABANG' || !divisiStr) {
+        for (let col = 0; col <= Math.min(15, r.length - 1); col++) {
             const val = String(r[col] || '').trim();
-            if (val && !/^\d+$/.test(val) && val.length > 3) {
-                if (!divisiStr && (val.toUpperCase().includes('DIVISI') || val.toUpperCase().includes('CABANG') || val.toUpperCase().includes('PUSAT'))) {
-                    divisiStr = val;
-                } else if (!grupStr && (val.toUpperCase().includes('GRUP') || val.toUpperCase().includes('BAGIAN') || val.toUpperCase().includes('SEKSI') || val.toUpperCase().includes('UNIT') || val.toUpperCase().includes('PENGADAAN') || val.toUpperCase().includes('MANAJEMEN'))) {
-                    grupStr = val;
-                }
+            if (val.toUpperCase().startsWith('DIVISI')) {
+                divisiStr = val;
+                break;
             }
         }
     }
