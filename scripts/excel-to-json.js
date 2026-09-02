@@ -185,7 +185,8 @@ var records = dataRows.map(function(r) {
         }
 
         // Cari Grup / Unit Kerja (misal: "Grup Manajemen Vendor & HPS", "Grup Pengadaan Gedung dan Properti")
-        if (!grupStr && (valUpper.startsWith('GRUP') || valUpper.startsWith('GROUP') || valUpper.startsWith('BAGIAN') || valUpper.startsWith('SEKSI') || valUpper.startsWith('UNIT') || valUpper.includes('PENGADAAN') || valUpper.includes('MANAJEMEN'))) {
+        // Batasi panjang teks agar tidak salah mendeteksi kalimat uraian / memo yang sangat panjang
+        if (!grupStr && val.length <= 100 && (valUpper.startsWith('GRUP') || valUpper.startsWith('GROUP') || valUpper.startsWith('BAGIAN') || valUpper.startsWith('SEKSI') || valUpper.startsWith('UNIT') || valUpper.includes('PENGADAAN') || valUpper.includes('MANAJEMEN'))) {
             grupStr = val;
         }
     }
@@ -197,14 +198,14 @@ var records = dataRows.map(function(r) {
     }
     if (!grupStr && idxGrup !== -1) {
         const val = String(r[idxGrup] || '').trim();
-        if (val && !/^\d+$/.test(val)) grupStr = val;
+        if (val && !/^\d+$/.test(val) && val.length <= 100) grupStr = val;
     }
 
     // Jika divisi masih berupa label umum 'KANTOR PUSAT', cari kolom yang mengandung kata 'DIVISI'
     if (divisiStr.toUpperCase() === 'KANTOR PUSAT' || divisiStr.toUpperCase() === 'KANTOR CABANG' || !divisiStr) {
         for (let col = 0; col <= Math.min(15, r.length - 1); col++) {
             const val = String(r[col] || '').trim();
-            if (val.toUpperCase().startsWith('DIVISI')) {
+            if (val.toUpperCase().startsWith('DIVISI') && val.length <= 100) {
                 divisiStr = val;
                 break;
             }
@@ -216,6 +217,11 @@ var records = dataRows.map(function(r) {
         finalUnitKerja = divisiStr + ' - ' + grupStr;
     } else {
         finalUnitKerja = grupStr || divisiStr || '-';
+    }
+
+    // Truncate unit_kerja to max 255 chars if needed
+    if (finalUnitKerja.length > 255) {
+        finalUnitKerja = finalUnitKerja.substring(0, 255);
     }
 
     return {

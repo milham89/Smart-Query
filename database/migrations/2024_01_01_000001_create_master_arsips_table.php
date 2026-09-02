@@ -12,7 +12,7 @@ class CreateMasterArsipsTable extends Migration
             $table->id();
             $table->string('kode_pelaksana')->unique()->index();
             $table->string('no_boks')->index();
-            $table->string('unit_kerja');
+            $table->text('unit_kerja')->nullable();
             $table->text('uraian_identitas');
             $table->integer('kurun_waktu_awal');
             $table->integer('kurun_waktu_akhir');
