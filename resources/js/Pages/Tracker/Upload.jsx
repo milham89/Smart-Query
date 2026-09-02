@@ -4,6 +4,8 @@ import { Archive, Clock, Upload as UploadIcon, FileSpreadsheet, CheckCircle, Ale
 export default function Upload() {
     const [file, setFile] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [statusText, setStatusText] = useState('');
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
     const [dragOver, setDragOver] = useState(false);
@@ -39,44 +41,69 @@ export default function Upload() {
         }
     };
 
-    const handleUpload = async () => {
+    const handleUpload = () => {
         if (!file) return;
         setLoading(true);
+        setUploadProgress(0);
+        setStatusText('Mengunggah file ke server...');
         setResult(null);
         setError(null);
 
         const formData = new FormData();
         formData.append('file', file);
 
-        try {
-            const res = await fetch('/upload', {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                body: formData,
-            });
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/upload', true);
+        xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
+        xhr.setRequestHeader('Accept', 'application/json');
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
 
-            let data;
-            const contentType = res.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-                data = await res.json();
-            } else {
-                const text = await res.text();
-                throw new Error(`Server mengembalikan respon bukan JSON (${res.status} ${res.statusText}): ${text.slice(0, 150)}...`);
+        xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+                const percentComplete = Math.round((event.loaded / event.total) * 100);
+                setUploadProgress(percentComplete);
+                if (percentComplete === 100) {
+                    setStatusText('File terkirim. Memproses & menyimpan ke database...');
+                } else {
+                    setStatusText(`Mengunggah file (${percentComplete}%)...`);
+                }
+            }
+        };
+
+        xhr.onload = () => {
+            setLoading(false);
+            const contentType = xhr.getResponseHeader('content-type') || '';
+            let data = null;
+
+            if (contentType.includes('application/json')) {
+                try {
+                    data = JSON.parse(xhr.responseText);
+                } catch (err) {
+                    // Ignore json parse error
+                }
             }
 
-            if (!res.ok) throw new Error(data.message || 'Upload gagal');
-            setResult(data);
-            setFile(null);
-            if (inputRef.current) inputRef.current.value = '';
-        } catch (e) {
-            setError(e.message);
-        } finally {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                setResult(data || { message: 'Upload berhasil.' });
+                setFile(null);
+                if (inputRef.current) inputRef.current.value = '';
+            } else {
+                if (xhr.status === 413) {
+                    setError('Ukuran file terlalu besar (413 Request Entity Too Large). Pastikan konfigurasi proxy/server (seperti client_max_body_size pada Nginx / Reverse Proxy) sudah mengizinkan minimal 100M.');
+                } else if (data && data.message) {
+                    setError(data.message);
+                } else {
+                    setError(`Upload gagal (${xhr.status} ${xhr.statusText}): ${xhr.responseText.slice(0, 150)}`);
+                }
+            }
+        };
+
+        xhr.onerror = () => {
             setLoading(false);
-        }
+            setError('Terjadi kesalahan jaringan saat mengunggah file.');
+        };
+
+        xhr.send(formData);
     };
 
     return (
@@ -138,7 +165,22 @@ export default function Upload() {
                         )}
                     </div>
 
-                    {/* Upload Button */}
+                    {/* Upload Button & Progress */}
+                    {loading && (
+                        <div className="space-y-2">
+                            <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+                                <div
+                                    className="bg-blue-600 h-3 rounded-full transition-all duration-300 ease-out"
+                                    style={{ width: `${uploadProgress}%` }}
+                                ></div>
+                            </div>
+                            <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                <span>{statusText}</span>
+                                <span>{uploadProgress}%</span>
+                            </div>
+                        </div>
+                    )}
+
                     <button
                         onClick={handleUpload}
                         disabled={!file || loading}
