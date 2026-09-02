@@ -47,7 +47,11 @@ function findCol(keywords, defaultIdx) {
 
 const idxKodePelaksana = findCol(['kode pelaksana', 'kode_pelaksana', 'no pelaksana', 'kode berkas'], 1);
 const idxNoBoks = findCol(['no. boks', 'no boks', 'nomor boks', 'no_boks', 'boks'], 24);
-const idxUnitKerja = findCol(['unit kerja', 'divisi', 'unit_kerja'], 5);
+
+// Kantor Pusat / Cabang / Divisi vs Unit Kerja
+const idxKantorPusat = findCol(['kantor pusat', 'kantor pusat / cabang', 'divisi', 'kantor cabang', 'cabang'], 4);
+const idxUnitKerja = findCol(['unit kerja', 'unit_kerja', 'grup', 'sub divisi', 'nama unit kerja'], 5);
+
 const idxUraian = findCol(['uraian identitas', 'uraian informasi berkas', 'uraian informasi', 'uraian 1', 'uraian'], 16);
 const idxUraian2 = findCol(['uraian 2', 'uraian2', 'keterangan'], 17);
 const idxTglAwal = findCol(['kurun waktu awal', 'tahun awal', 'tgl awal', 'awal'], 14);
@@ -150,10 +154,21 @@ var records = dataRows.map(function(r) {
         peminjamTerakhir = null;
     }
 
+    // Gabungkan Divisi / Kantor Pusat + Unit Kerja jika keduanya ada
+    var kantorPusatStr = idxKantorPusat !== -1 ? String(r[idxKantorPusat] || '').trim() : '';
+    var unitKerjaStr = idxUnitKerja !== -1 ? String(r[idxUnitKerja] || '').trim() : '';
+    
+    var finalUnitKerja = '';
+    if (kantorPusatStr && unitKerjaStr && kantorPusatStr !== unitKerjaStr) {
+        finalUnitKerja = kantorPusatStr + ' - ' + unitKerjaStr;
+    } else {
+        finalUnitKerja = unitKerjaStr || kantorPusatStr || '-';
+    }
+
     return {
         kode_pelaksana: String(r[idxKodePelaksana] || '').trim(),
         no_boks: String(r[idxNoBoks] || '').trim(),
-        unit_kerja: String(r[idxUnitKerja] || '').trim(),
+        unit_kerja: finalUnitKerja,
         uraian_identitas: String(r[idxUraian] || '').trim(),
         uraian2: idxUraian2 !== -1 ? String(r[idxUraian2] || '').trim() : '',
         kurun_waktu_awal: tglAwal ? parseInt(tglAwal.substring(0, 4)) : 0,
