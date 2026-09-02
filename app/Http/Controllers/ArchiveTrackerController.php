@@ -180,13 +180,7 @@ class ArchiveTrackerController extends Controller
         }
 
         $imported = 0;
-        $skipped = 0;
         foreach ($data as $row) {
-            $exists = MasterArsip::where('kode_pelaksana', $row['kode_pelaksana'])->exists();
-            if ($exists) {
-                $skipped++;
-                continue;
-            }
             MasterArsip::create($row);
             $imported++;
         }
@@ -196,9 +190,8 @@ class ArchiveTrackerController extends Controller
         @unlink($jsonPath);
 
         return response()->json([
-            'message' => "Import selesai. Ditambahkan: {$imported}, Dilewati (duplikat): {$skipped}",
+            'message' => "Import selesai. {$imported} data berhasil diimport.",
             'imported' => $imported,
-            'skipped' => $skipped,
         ]);
     }
 }
