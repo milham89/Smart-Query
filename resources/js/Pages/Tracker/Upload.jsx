@@ -66,7 +66,11 @@ export default function Upload() {
             xhr.upload.onprogress = (event) => {
                 if (event.lengthComputable) {
                     const percent = Math.round((event.loaded / event.total) * 100);
-                    setStatusText(`Mengunggah file ${index + 1} dari ${totalFiles}: ${fileObj.name} (${percent}%)...`);
+                    if (percent >= 100) {
+                        setStatusText(`File ${index + 1}/${totalFiles} (${fileObj.name}) terkirim. Server sedang memproses parsing Excel & menyimpan ke database...`);
+                    } else {
+                        setStatusText(`Mengunggah file ${index + 1} dari ${totalFiles}: ${fileObj.name} (${percent}%)...`);
+                    }
                     const overallPercent = Math.round(((index + (percent / 100)) / totalFiles) * 100);
                     setUploadProgress(overallPercent);
                 }
