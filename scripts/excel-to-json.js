@@ -5,9 +5,17 @@ const path = require('path');
 const file = process.argv[2];
 if (!file) { console.error('Usage: node excel-to-json.js <file.xlsx>'); process.exit(1); }
 
-// Fast sheet read without formulas/styles
-const wb = XLSX.readFile(file, { cellFormula: false, cellHTML: false, cellText: false });
+// High performance stream read for large excel files
+const wb = XLSX.readFile(file, { 
+    cellFormula: false, 
+    cellHTML: false, 
+    cellText: false, 
+    cellDates: false,
+    dense: true 
+});
 const ws = wb.Sheets[wb.SheetNames[0]];
+
+// Fast manual row extraction or utils
 const raw = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
 
 // Scan top 6 rows to find all header labels across rows (handling merged header rows)
