@@ -156,46 +156,59 @@ class ArchiveTrackerController extends Controller
     public function uploadProcess(Request $request)
     {
         // Increase execution time & memory for large file imports
-        set_time_limit(600);
-        ini_set('memory_limit', '512M');
+        set_time_limit(1200);
+        ini_set('memory_limit', '1024M');
 
         $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls|max:102400',
+            'files' => 'nullable|array',
+            'files.*' => 'file|mimes:xlsx,xls|max:102400',
+            'file' => 'nullable|file|mimes:xlsx,xls|max:102400',
         ]);
 
-        $file = $request->file('file');
-        $tmpPath = $file->storeAs('uploads', 'import_' . time() . '.xlsx');
-        $fullPath = storage_path('app/' . $tmpPath);
+        $uploadedFiles = [];
+        if ($request->hasFile('files')) {
+            $uploadedFiles = $request->file('files');
+        } elseif ($request->hasFile('file')) {
+            $uploadedFiles = [$request->file('file')];
+        }
 
-        // Use Node.js xlsx to convert to JSON
+        if (empty($uploadedFiles)) {
+            return response()->json(['message' => 'Tidak ada file yang diunggah.'], 422);
+        }
+
         $scriptPath = base_path('scripts/excel-to-json.js');
-        $jsonPath = storage_path('app/uploads/import_' . time() . '.json');
+        $allValidRows = [];
+        $processedFilesCount = 0;
 
-        $cmd = 'node --max-old-space-size=4096 ' . escapeshellarg($scriptPath) . ' ' . escapeshellarg($fullPath) . ' ' . escapeshellarg($jsonPath);
-        exec($cmd . ' 2>&1', $output, $exitCode);
+        foreach ($uploadedFiles as $index => $file) {
+            $tmpPath = $file->storeAs('uploads', 'import_' . time() . '_' . $index . '.xlsx');
+            $fullPath = storage_path('app/' . $tmpPath);
+            $jsonPath = storage_path('app/uploads/import_' . time() . '_' . $index . '.json');
 
-        if ($exitCode !== 0 || !file_exists($jsonPath)) {
-            @unlink($fullPath);
-            return response()->json(['message' => 'Gagal memproses file Excel. ' . implode("\n", $output)], 422);
-        }
+            $cmd = 'node --max-old-space-size=4096 ' . escapeshellarg($scriptPath) . ' ' . escapeshellarg($fullPath) . ' ' . escapeshellarg($jsonPath);
+            exec($cmd . ' 2>&1', $output, $exitCode);
 
-        $data = json_decode(file_get_contents($jsonPath), true);
-        if (!$data || !is_array($data)) {
-            @unlink($fullPath);
-            @unlink($jsonPath);
-            return response()->json(['message' => 'Data JSON tidak valid.'], 422);
-        }
-
-        // Batch upsert in chunks to prevent DB connection timeouts
-        $validRows = [];
-        foreach ($data as $row) {
-            if (!empty($row['kode_pelaksana'])) {
-                $validRows[$row['kode_pelaksana']] = $row; // deduplicate within sheet
+            if ($exitCode === 0 && file_exists($jsonPath)) {
+                $data = json_decode(file_get_contents($jsonPath), true);
+                if (is_array($data)) {
+                    foreach ($data as $row) {
+                        if (!empty($row['kode_pelaksana'])) {
+                            $allValidRows[$row['kode_pelaksana']] = $row;
+                        }
+                    }
+                    $processedFilesCount++;
+                }
+                @unlink($jsonPath);
             }
+            @unlink($fullPath);
+        }
+
+        if (empty($allValidRows)) {
+            return response()->json(['message' => 'Gagal membaca data arsip dari file yang diunggah.'], 422);
         }
 
         $imported = 0;
-        $chunks = array_chunk(array_values($validRows), 500);
+        $chunks = array_chunk(array_values($allValidRows), 500);
         foreach ($chunks as $chunk) {
             \Illuminate\Support\Facades\DB::transaction(function () use ($chunk, &$imported) {
                 MasterArsip::upsert(
@@ -207,13 +220,10 @@ class ArchiveTrackerController extends Controller
             });
         }
 
-        // Cleanup
-        @unlink($fullPath);
-        @unlink($jsonPath);
-
         return response()->json([
-            'message' => "Import selesai. {$imported} data berhasil diimport.",
+            'message' => "Import selesai. {$imported} data dari {$processedFilesCount} file berhasil diimport.",
             'imported' => $imported,
+            'files_count' => $processedFilesCount,
         ]);
     }
 }

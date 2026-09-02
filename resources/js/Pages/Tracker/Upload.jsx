@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { Archive, Clock, Upload as UploadIcon, FileSpreadsheet, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { Archive, Clock, Upload as UploadIcon, FileSpreadsheet, CheckCircle, AlertCircle, Loader, X, FileText } from 'lucide-react';
 
 export default function Upload() {
-    const [file, setFile] = useState(null);
+    const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [statusText, setStatusText] = useState('');
@@ -19,38 +19,51 @@ export default function Upload() {
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
+    const addFiles = (newFilesList) => {
+        const validFiles = Array.from(newFilesList).filter(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls'));
+        if (validFiles.length === 0) {
+            setError('Hanya file .xlsx atau .xls yang didukung.');
+            return;
+        }
+        setFiles(prev => {
+            const existingNames = new Set(prev.map(p => p.name + p.size));
+            const filtered = validFiles.filter(f => !existingNames.has(f.name + f.size));
+            return [...prev, ...filtered];
+        });
+        setResult(null);
+        setError(null);
+    };
+
+    const removeFile = (index) => {
+        setFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
     const handleDrop = (e) => {
         e.preventDefault();
         setDragOver(false);
-        const f = e.dataTransfer.files[0];
-        if (f && (f.name.endsWith('.xlsx') || f.name.endsWith('.xls'))) {
-            setFile(f);
-            setResult(null);
-            setError(null);
-        } else {
-            setError('Hanya file .xlsx atau .xls yang didukung.');
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            addFiles(e.dataTransfer.files);
         }
     };
 
     const handleFileChange = (e) => {
-        const f = e.target.files[0];
-        if (f) {
-            setFile(f);
-            setResult(null);
-            setError(null);
+        if (e.target.files && e.target.files.length > 0) {
+            addFiles(e.target.files);
         }
     };
 
     const handleUpload = () => {
-        if (!file) return;
+        if (files.length === 0) return;
         setLoading(true);
         setUploadProgress(0);
-        setStatusText('Mengunggah file ke server...');
+        setStatusText(`Mengunggah ${files.length} file ke server...`);
         setResult(null);
         setError(null);
 
         const formData = new FormData();
-        formData.append('file', file);
+        files.forEach((f) => {
+            formData.append('files[]', f);
+        });
 
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/upload', true);
@@ -63,7 +76,7 @@ export default function Upload() {
                 const percentComplete = Math.round((event.loaded / event.total) * 100);
                 setUploadProgress(percentComplete);
                 if (percentComplete === 100) {
-                    setStatusText('File terkirim. Memproses & menyimpan ke database...');
+                    setStatusText('File terkirim. Memproses & menyimpan data ke database...');
                 } else {
                     setStatusText(`Mengunggah file (${percentComplete}%)...`);
                 }
@@ -85,11 +98,11 @@ export default function Upload() {
 
             if (xhr.status >= 200 && xhr.status < 300) {
                 setResult(data || { message: 'Upload berhasil.' });
-                setFile(null);
+                setFiles([]);
                 if (inputRef.current) inputRef.current.value = '';
             } else {
                 if (xhr.status === 413) {
-                    setError('Ukuran file terlalu besar (413 Request Entity Too Large). Pastikan konfigurasi proxy/server (seperti client_max_body_size pada Nginx / Reverse Proxy) sudah mengizinkan minimal 100M.');
+                    setError('Ukuran total file terlalu besar (413 Request Entity Too Large). Pastikan konfigurasi proxy/server (seperti client_max_body_size pada Nginx / Reverse Proxy) sudah mengizinkan minimal 100M.');
                 } else if (xhr.status === 504) {
                     setError('Proses import membutuhkan waktu lebih lama dari batas timeout Nginx/Gateway (504 Gateway Time-out). Tingkatkan proxy_read_timeout dan fastcgi_read_timeout pada Nginx.');
                 } else if (data && data.message) {
@@ -108,6 +121,8 @@ export default function Upload() {
         xhr.send(formData);
     };
 
+    const totalSizeKb = files.reduce((acc, f) => acc + (f.size / 1024), 0);
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col">
             {/* Header */}
@@ -118,7 +133,7 @@ export default function Upload() {
                     </div>
                     <div>
                         <h1 className="text-lg font-bold text-slate-800 leading-tight">Upload Data Arsip</h1>
-                        <p className="text-xs text-slate-500">Import data arsip dari file Excel</p>
+                        <p className="text-xs text-slate-500">Import data arsip dari satu atau beberapa file Excel</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -142,30 +157,51 @@ export default function Upload() {
                         onDragLeave={() => setDragOver(false)}
                         onDrop={handleDrop}
                         onClick={() => inputRef.current?.click()}
-                        className={`bg-white rounded-xl shadow-sm border-2 border-dashed p-12 text-center cursor-pointer transition ${
+                        className={`bg-white rounded-xl shadow-sm border-2 border-dashed p-8 text-center cursor-pointer transition ${
                             dragOver ? 'border-blue-500 bg-blue-50' : 'border-slate-300 hover:border-blue-400'
                         }`}
                     >
                         <input
                             ref={inputRef}
                             type="file"
+                            multiple
                             accept=".xlsx,.xls"
                             onChange={handleFileChange}
                             className="hidden"
                         />
-                        <FileSpreadsheet size={48} className="mx-auto text-slate-300 mb-3" />
-                        {file ? (
-                            <>
-                                <p className="text-slate-700 font-medium">{file.name}</p>
-                                <p className="text-xs text-slate-400 mt-1">{(file.size / 1024).toFixed(1)} KB — Klik upload untuk memproses</p>
-                            </>
-                        ) : (
-                            <>
-                                <p className="text-slate-500 font-medium">Drag & drop file Excel di sini</p>
-                                <p className="text-xs text-slate-400 mt-1">atau klik untuk memilih file (.xlsx / .xls)</p>
-                            </>
-                        )}
+                        <FileSpreadsheet size={44} className="mx-auto text-blue-500 mb-2 opacity-80" />
+                        <p className="text-slate-700 font-medium text-sm">Drag & drop beberapa file Excel di sini</p>
+                        <p className="text-xs text-slate-400 mt-1">atau klik untuk memilih file (bisa pilih banyak file sekaligus)</p>
                     </div>
+
+                    {/* File List */}
+                    {files.length > 0 && (
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+                            <div className="flex justify-between items-center text-xs font-semibold text-slate-600 border-b pb-2">
+                                <span>File Terpilih ({files.length} file)</span>
+                                <span>Total: {totalSizeKb > 1024 ? `${(totalSizeKb / 1024).toFixed(2)} MB` : `${totalSizeKb.toFixed(1)} KB`}</span>
+                            </div>
+                            <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+                                {files.map((f, idx) => (
+                                    <div key={idx} className="flex items-center justify-between bg-slate-50 border border-slate-200/80 rounded-lg px-3 py-2 text-xs">
+                                        <div className="flex items-center gap-2 truncate pr-2">
+                                            <FileText size={16} className="text-blue-600 flex-shrink-0" />
+                                            <span className="truncate font-medium text-slate-700">{f.name}</span>
+                                            <span className="text-slate-400 flex-shrink-0">({(f.size / 1024).toFixed(1)} KB)</span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            disabled={loading}
+                                            onClick={(e) => { e.stopPropagation(); removeFile(idx); }}
+                                            className="text-slate-400 hover:text-red-500 p-1 rounded transition"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Upload Button & Progress */}
                     {loading && (
@@ -185,13 +221,13 @@ export default function Upload() {
 
                     <button
                         onClick={handleUpload}
-                        disabled={!file || loading}
-                        className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg text-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={files.length === 0 || loading}
+                        className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg text-sm transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                     >
                         {loading ? (
-                            <><Loader size={16} className="animate-spin" /> Memproses...</>
+                            <><Loader size={16} className="animate-spin" /> Memproses {files.length} File...</>
                         ) : (
-                            <><UploadIcon size={16} /> Upload & Import</>
+                            <><UploadIcon size={16} /> Upload & Import {files.length > 0 ? `(${files.length} File)` : ''}</>
                         )}
                     </button>
 
@@ -203,7 +239,7 @@ export default function Upload() {
                                 <p className="text-emerald-800 font-medium text-sm">{result.message}</p>
                                 {result.imported !== undefined && (
                                     <p className="text-emerald-600 text-xs mt-1">
-                                        Data berhasil diimport: {result.imported}
+                                        Data berhasil diimport: {result.imported} data
                                     </p>
                                 )}
                             </div>
@@ -222,9 +258,9 @@ export default function Upload() {
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 text-sm text-slate-600 space-y-2">
                         <h3 className="font-semibold text-slate-700">Petunjuk Upload</h3>
                         <ul className="list-disc list-inside space-y-1 text-xs">
-                            <li>File harus berformat <strong>.xlsx</strong> atau <strong>.xls</strong></li>
-                            <li>Format kolom harus sesuai template standar (3 baris header)</li>
-                            <li>Maksimal ukuran file: 100 MB</li>
+                            <li>Bisa memilih dan mengupload <strong>lebih dari satu file Excel sekaligus</strong> (multi-file).</li>
+                            <li>File harus berformat <strong>.xlsx</strong> atau <strong>.xls</strong>.</li>
+                            <li>Sistem otomatis menggabungkan seluruh file dan melakukan batch upsert ke database.</li>
                         </ul>
                     </div>
                 </div>
