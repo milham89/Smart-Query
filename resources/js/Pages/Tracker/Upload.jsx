@@ -52,73 +52,84 @@ export default function Upload() {
         }
     };
 
-    const handleUpload = () => {
+    const uploadSingleFile = (fileObj, index, totalFiles) => {
+        return new Promise((resolve, reject) => {
+            const formData = new FormData();
+            formData.append('file', fileObj);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/upload', true);
+            xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
+            xhr.setRequestHeader('Accept', 'application/json');
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const percent = Math.round((event.loaded / event.total) * 100);
+                    setStatusText(`Mengunggah file ${index + 1} dari ${totalFiles}: ${fileObj.name} (${percent}%)...`);
+                    const overallPercent = Math.round(((index + (percent / 100)) / totalFiles) * 100);
+                    setUploadProgress(overallPercent);
+                }
+            };
+
+            xhr.onload = () => {
+                const contentType = xhr.getResponseHeader('content-type') || '';
+                let data = null;
+                if (contentType.includes('application/json')) {
+                    try { data = JSON.parse(xhr.responseText); } catch (e) {}
+                }
+
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    resolve(data || { imported: 0 });
+                } else {
+                    if (xhr.status === 413) {
+                        reject(new Error(`File "${fileObj.name}" terlalu besar (413 Request Entity Too Large). Periksa client_max_body_size pada server.`));
+                    } else if (xhr.status === 504) {
+                        reject(new Error(`File "${fileObj.name}" timeout saat diproses (504 Gateway Time-out).`));
+                    } else if (data && data.message) {
+                        reject(new Error(data.message));
+                    } else {
+                        reject(new Error(`Gagal upload "${fileObj.name}" (${xhr.status}): ${xhr.responseText.slice(0, 100)}`));
+                    }
+                }
+            };
+
+            xhr.onerror = () => reject(new Error(`Koneksi terputus saat mengunggah "${fileObj.name}".`));
+            xhr.send(formData);
+        });
+    };
+
+    const handleUpload = async () => {
         if (files.length === 0) return;
         setLoading(true);
         setUploadProgress(0);
-        setStatusText(`Mengunggah ${files.length} file ke server...`);
         setResult(null);
         setError(null);
 
-        const formData = new FormData();
-        files.forEach((f) => {
-            formData.append('files[]', f);
-        });
+        let totalImported = 0;
+        let successCount = 0;
 
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/upload', true);
-        xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
-        xhr.setRequestHeader('Accept', 'application/json');
-        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-
-        xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-                const percentComplete = Math.round((event.loaded / event.total) * 100);
-                setUploadProgress(percentComplete);
-                if (percentComplete === 100) {
-                    setStatusText('File terkirim. Memproses & menyimpan data ke database...');
-                } else {
-                    setStatusText(`Mengunggah file (${percentComplete}%)...`);
-                }
+        try {
+            for (let i = 0; i < files.length; i++) {
+                const f = files[i];
+                setStatusText(`Mengunggah file ${i + 1} dari ${files.length}: ${f.name}...`);
+                const res = await uploadSingleFile(f, i, files.length);
+                totalImported += (res.imported || 0);
+                successCount++;
+                setUploadProgress(Math.round(((i + 1) / files.length) * 100));
             }
-        };
 
-        xhr.onload = () => {
             setLoading(false);
-            const contentType = xhr.getResponseHeader('content-type') || '';
-            let data = null;
-
-            if (contentType.includes('application/json')) {
-                try {
-                    data = JSON.parse(xhr.responseText);
-                } catch (err) {
-                    // Ignore json parse error
-                }
-            }
-
-            if (xhr.status >= 200 && xhr.status < 300) {
-                setResult(data || { message: 'Upload berhasil.' });
-                setFiles([]);
-                if (inputRef.current) inputRef.current.value = '';
-            } else {
-                if (xhr.status === 413) {
-                    setError('Ukuran total file terlalu besar (413 Request Entity Too Large). Pastikan konfigurasi proxy/server (seperti client_max_body_size pada Nginx / Reverse Proxy) sudah mengizinkan minimal 100M.');
-                } else if (xhr.status === 504) {
-                    setError('Proses import membutuhkan waktu lebih lama dari batas timeout Nginx/Gateway (504 Gateway Time-out). Tingkatkan proxy_read_timeout dan fastcgi_read_timeout pada Nginx.');
-                } else if (data && data.message) {
-                    setError(data.message);
-                } else {
-                    setError(`Upload gagal (${xhr.status} ${xhr.statusText}): ${xhr.responseText.slice(0, 150)}`);
-                }
-            }
-        };
-
-        xhr.onerror = () => {
+            setResult({
+                message: `Berhasil mengimport ${totalImported} data arsip dari ${successCount} file.`,
+                imported: totalImported
+            });
+            setFiles([]);
+            if (inputRef.current) inputRef.current.value = '';
+        } catch (err) {
             setLoading(false);
-            setError('Terjadi kesalahan jaringan saat mengunggah file.');
-        };
-
-        xhr.send(formData);
+            setError(err.message || 'Terjadi kesalahan saat memproses upload.');
+        }
     };
 
     const totalSizeKb = files.reduce((acc, f) => acc + (f.size / 1024), 0);
