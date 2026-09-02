@@ -14,9 +14,11 @@ class ChangeDateToDatetimeInTables extends Migration
      */
     public function up()
     {
-        DB::statement('ALTER TABLE `master_arsips` MODIFY `tgl_pinjam_terakhir` DATETIME NULL');
-        DB::statement('ALTER TABLE `register_peminjamen` MODIFY `tanggal_request` DATETIME NOT NULL');
-        DB::statement('ALTER TABLE `register_peminjamen` MODIFY `tgl_pengembalian` DATETIME NULL');
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE `master_arsips` MODIFY `tgl_pinjam_terakhir` DATETIME NULL');
+            DB::statement('ALTER TABLE `register_peminjamen` MODIFY `tanggal_request` DATETIME NOT NULL');
+            DB::statement('ALTER TABLE `register_peminjamen` MODIFY `tgl_pengembalian` DATETIME NULL');
+        }
     }
 
     /**
@@ -26,8 +28,10 @@ class ChangeDateToDatetimeInTables extends Migration
      */
     public function down()
     {
-        DB::statement('ALTER TABLE `master_arsips` MODIFY `tgl_pinjam_terakhir` DATE NULL');
-        DB::statement('ALTER TABLE `register_peminjamen` MODIFY `tanggal_request` DATE NOT NULL');
-        DB::statement('ALTER TABLE `register_peminjamen` MODIFY `tgl_pengembalian` DATE NULL');
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE `master_arsips` MODIFY `tgl_pinjam_terakhir` DATE NULL');
+            DB::statement('ALTER TABLE `register_peminjamen` MODIFY `tanggal_request` DATE NOT NULL');
+            DB::statement('ALTER TABLE `register_peminjamen` MODIFY `tgl_pengembalian` DATE NULL');
+        }
     }
 }

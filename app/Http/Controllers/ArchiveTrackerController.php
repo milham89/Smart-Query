@@ -156,7 +156,7 @@ class ArchiveTrackerController extends Controller
     public function uploadProcess(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls|max:10240',
+            'file' => 'required|file|mimes:xlsx,xls|max:102400',
         ]);
 
         $file = $request->file('file');

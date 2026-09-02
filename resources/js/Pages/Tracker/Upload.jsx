@@ -57,6 +57,9 @@ export default function Upload() {
                 },
                 body: formData,
             });
+            if (res.status === 413) {
+                throw new Error('Ukuran file terlalu besar (413 Request Entity Too Large). Pastikan konfigurasi web server / PHP mengizinkan upload file berukuran besar.');
+            }
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || 'Upload gagal');
             setResult(data);
