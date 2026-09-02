@@ -72,23 +72,8 @@ let idxRuang = findCol(['ruang simpan', 'ruang', 'nama lokasi', 'gedung'], 26);
 let idxStatus = findCol(['status peminjaman', 'status pinjam', 'status arsip', 'status'], -1);
 let idxPeminjam = findCol(['nama peminjam', 'peminjam', 'dipinjam oleh'], -1);
 
-// Find first row containing actual data (kode pelaksana pattern)
-let dataStartRow = 0;
-for (let i = 0; i < raw.length; i++) {
-    const row = raw[i];
-    if (row && row[idxKodePelaksana]) {
-        const cell = String(row[idxKodePelaksana]).trim();
-        // Skip header words
-        if (!cell.toLowerCase().includes('kode') && !cell.toLowerCase().includes('pelaksana') && !cell.toLowerCase().includes('no')) {
-            dataStartRow = i;
-            break;
-        }
-    }
-}
-
-const dataRows = raw.slice(dataStartRow).filter(function(r) { 
-    return r && r[idxKodePelaksana] && String(r[idxKodePelaksana]).trim() !== ''; 
-});
+// Regex for dot-separated rack location code e.g. BZ1C.01.001A.01.001 or PS03.01.RO002W.01.001
+const LOKASI_CODE_REGEX = /^[A-Z0-9]+(\.[A-Z0-9]+)+$/i;
 
 function parseDate(v) {
     if (!v) return null;
@@ -111,10 +96,16 @@ function parseLokasi(lok) {
     };
 }
 
-// Regex for dot-separated rack location code e.g. BZ1C.01.001A.01.001 or PS03.01.RO002W.01.001
-const LOKASI_CODE_REGEX = /^[A-Z0-9]+(\.[A-Z0-9]+)+$/i;
+const records = [];
 
-var records = dataRows.map(function(r) {
+for (let i = 0; i < raw.length; i++) {
+    const r = raw[i];
+    if (!r) continue;
+    const rawKode = r[idxKodePelaksana];
+    if (!rawKode) continue;
+    const kode = String(rawKode).trim();
+    if (!kode || kode.toLowerCase().includes('kode') || kode.toLowerCase().includes('pelaksana') || kode === 'No' || kode === 'NO') continue;
+
     var rawLokasiUpdate = idxLokasiUpdate !== -1 ? r[idxLokasiUpdate] : null;
     
     // If not found by column name, inspect cells in row for a location pattern like BZ1C...
@@ -223,7 +214,7 @@ var records = dataRows.map(function(r) {
         finalUnitKerja = finalUnitKerja.substring(0, 255);
     }
 
-    return {
+    records.push({
         kode_pelaksana: String(r[idxKodePelaksana] || '').trim(),
         no_boks: String(r[idxNoBoks] || '').trim(),
         unit_kerja: finalUnitKerja,
@@ -237,8 +228,8 @@ var records = dataRows.map(function(r) {
         status: finalStatus,
         peminjam_terakhir: peminjamTerakhir,
         tgl_pinjam_terakhir: finalStatus === 'DIPINJAM' ? new Date().toISOString().slice(0, 19).replace('T', ' ') : null
-    };
-});
+    });
+}
 
 var outPath = process.argv[3] || path.join(__dirname, '..', 'database', 'import-data.json');
 fs.writeFileSync(outPath, JSON.stringify(records, null, 2));

@@ -59,6 +59,7 @@ export default function Upload() {
 
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/upload', true);
+            xhr.timeout = 1800000; // 30 minutes timeout for very large files
             xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
             xhr.setRequestHeader('Accept', 'application/json');
             xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
