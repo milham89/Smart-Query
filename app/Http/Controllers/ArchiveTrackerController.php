@@ -155,6 +155,10 @@ class ArchiveTrackerController extends Controller
 
     public function uploadProcess(Request $request)
     {
+        // Increase execution time & memory for large file imports
+        set_time_limit(600);
+        ini_set('memory_limit', '512M');
+
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls|max:102400',
         ]);
@@ -167,28 +171,40 @@ class ArchiveTrackerController extends Controller
         $scriptPath = base_path('scripts/excel-to-json.js');
         $jsonPath = storage_path('app/uploads/import_' . time() . '.json');
 
-        $cmd = 'node ' . escapeshellarg($scriptPath) . ' ' . escapeshellarg($fullPath) . ' ' . escapeshellarg($jsonPath);
+        $cmd = 'node --max-old-space-size=4096 ' . escapeshellarg($scriptPath) . ' ' . escapeshellarg($fullPath) . ' ' . escapeshellarg($jsonPath);
         exec($cmd . ' 2>&1', $output, $exitCode);
 
         if ($exitCode !== 0 || !file_exists($jsonPath)) {
+            @unlink($fullPath);
             return response()->json(['message' => 'Gagal memproses file Excel. ' . implode("\n", $output)], 422);
         }
 
         $data = json_decode(file_get_contents($jsonPath), true);
         if (!$data || !is_array($data)) {
+            @unlink($fullPath);
+            @unlink($jsonPath);
             return response()->json(['message' => 'Data JSON tidak valid.'], 422);
         }
 
-        $imported = 0;
+        // Batch upsert in chunks to prevent DB connection timeouts
+        $validRows = [];
         foreach ($data as $row) {
-            if (empty($row['kode_pelaksana'])) {
-                continue;
+            if (!empty($row['kode_pelaksana'])) {
+                $validRows[$row['kode_pelaksana']] = $row; // deduplicate within sheet
             }
-            MasterArsip::updateOrCreate(
-                ['kode_pelaksana' => $row['kode_pelaksana']],
-                $row
-            );
-            $imported++;
+        }
+
+        $imported = 0;
+        $chunks = array_chunk(array_values($validRows), 500);
+        foreach ($chunks as $chunk) {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($chunk, &$imported) {
+                MasterArsip::upsert(
+                    $chunk,
+                    ['kode_pelaksana'],
+                    ['no_boks', 'unit_kerja', 'uraian_identitas', 'uraian2', 'kurun_waktu_awal', 'kurun_waktu_akhir', 'lokasi_simpan', 'ruang_simpan', 'rak', 'status', 'peminjam_terakhir', 'tgl_pinjam_terakhir']
+                );
+                $imported += count($chunk);
+            });
         }
 
         // Cleanup

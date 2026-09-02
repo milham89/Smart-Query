@@ -90,6 +90,8 @@ export default function Upload() {
             } else {
                 if (xhr.status === 413) {
                     setError('Ukuran file terlalu besar (413 Request Entity Too Large). Pastikan konfigurasi proxy/server (seperti client_max_body_size pada Nginx / Reverse Proxy) sudah mengizinkan minimal 100M.');
+                } else if (xhr.status === 504) {
+                    setError('Proses import membutuhkan waktu lebih lama dari batas timeout Nginx/Gateway (504 Gateway Time-out). Tingkatkan proxy_read_timeout dan fastcgi_read_timeout pada Nginx.');
                 } else if (data && data.message) {
                     setError(data.message);
                 } else {
