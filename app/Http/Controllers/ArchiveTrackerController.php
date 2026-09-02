@@ -156,7 +156,7 @@ class ArchiveTrackerController extends Controller
     public function uploadProcess(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls|max:10240',
+            'file' => 'required|file|mimes:xlsx,xls|max:102400',
         ]);
 
         $file = $request->file('file');
@@ -180,13 +180,7 @@ class ArchiveTrackerController extends Controller
         }
 
         $imported = 0;
-        $skipped = 0;
         foreach ($data as $row) {
-            $exists = MasterArsip::where('kode_pelaksana', $row['kode_pelaksana'])->exists();
-            if ($exists) {
-                $skipped++;
-                continue;
-            }
             MasterArsip::create($row);
             $imported++;
         }
@@ -196,9 +190,8 @@ class ArchiveTrackerController extends Controller
         @unlink($jsonPath);
 
         return response()->json([
-            'message' => "Import selesai. Ditambahkan: {$imported}, Dilewati (duplikat): {$skipped}",
+            'message' => "Import selesai. {$imported} data berhasil diimport.",
             'imported' => $imported,
-            'skipped' => $skipped,
         ]);
     }
 }

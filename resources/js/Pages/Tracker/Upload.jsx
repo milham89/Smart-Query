@@ -147,9 +147,11 @@ export default function Upload() {
                             <CheckCircle size={20} className="text-emerald-600 mt-0.5 flex-shrink-0" />
                             <div>
                                 <p className="text-emerald-800 font-medium text-sm">{result.message}</p>
-                                <p className="text-emerald-600 text-xs mt-1">
-                                    Data baru: {result.imported} | Duplikat dilewati: {result.skipped}
-                                </p>
+                                {result.imported !== undefined && (
+                                    <p className="text-emerald-600 text-xs mt-1">
+                                        Data berhasil diimport: {result.imported}
+                                    </p>
+                                )}
                             </div>
                         </div>
                     )}
@@ -168,8 +170,7 @@ export default function Upload() {
                         <ul className="list-disc list-inside space-y-1 text-xs">
                             <li>File harus berformat <strong>.xlsx</strong> atau <strong>.xls</strong></li>
                             <li>Format kolom harus sesuai template standar (3 baris header)</li>
-                            <li>Data duplikat (kode pelaksana sama) akan otomatis dilewati</li>
-                            <li>Maksimal ukuran file: 10 MB</li>
+                            <li>Maksimal ukuran file: 100 MB</li>
                         </ul>
                     </div>
                 </div>
