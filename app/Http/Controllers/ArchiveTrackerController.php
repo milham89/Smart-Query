@@ -181,7 +181,13 @@ class ArchiveTrackerController extends Controller
 
         $imported = 0;
         foreach ($data as $row) {
-            MasterArsip::create($row);
+            if (empty($row['kode_pelaksana'])) {
+                continue;
+            }
+            MasterArsip::updateOrCreate(
+                ['kode_pelaksana' => $row['kode_pelaksana']],
+                $row
+            );
             $imported++;
         }
 
