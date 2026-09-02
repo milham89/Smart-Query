@@ -54,10 +54,20 @@ export default function Upload() {
                 headers: {
                     'X-CSRF-TOKEN': csrfToken,
                     'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
                 },
                 body: formData,
             });
-            const data = await res.json();
+
+            let data;
+            const contentType = res.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                data = await res.json();
+            } else {
+                const text = await res.text();
+                throw new Error(`Server mengembalikan respon bukan JSON (${res.status} ${res.statusText}): ${text.slice(0, 150)}...`);
+            }
+
             if (!res.ok) throw new Error(data.message || 'Upload gagal');
             setResult(data);
             setFile(null);
